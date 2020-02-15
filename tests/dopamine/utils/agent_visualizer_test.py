@@ -20,8 +20,6 @@ from __future__ import print_function
 import os
 import shutil
 
-
-
 from absl import flags
 from dopamine.utils.agent_visualizer import AgentVisualizer
 from dopamine.utils.line_plotter import LinePlotter
@@ -29,32 +27,32 @@ import numpy as np
 from PIL import Image
 import tensorflow.compat.v1 as tf
 
-
 FLAGS = flags.FLAGS
 
 
 class AgentVisualizerTest(tf.test.TestCase):
 
-  def setUp(self):
-    super(AgentVisualizerTest, self).setUp()
-    self._test_subdir = os.path.join('/tmp/dopamine_tests', 'agent_visualizer')
-    shutil.rmtree(self._test_subdir, ignore_errors=True)
-    os.makedirs(self._test_subdir)
+    def setUp(self):
+        super(AgentVisualizerTest, self).setUp()
+        self._test_subdir = os.path.join('/tmp/dopamine_tests', 'agent_visualizer')
+        shutil.rmtree(self._test_subdir, ignore_errors=True)
+        os.makedirs(self._test_subdir)
 
-  def test_agent_visualizer_save_frame(self):
-    parameter_dict = LinePlotter._defaults.copy()
-    parameter_dict['get_line_data_fn'] = lambda: [[1, 2, 3]]
-    plotter = LinePlotter(parameter_dict=parameter_dict)
+    def test_agent_visualizer_save_frame(self):
+        parameter_dict = LinePlotter._defaults.copy()
+        parameter_dict['get_line_data_fn'] = lambda: [[1, 2, 3]]
+        plotter = LinePlotter(parameter_dict=parameter_dict)
 
-    agent_visualizer = AgentVisualizer(self._test_subdir, [plotter])
-    agent_visualizer.save_frame()
+        agent_visualizer = AgentVisualizer(self._test_subdir, [plotter])
+        agent_visualizer.save_frame()
 
-    frame_filename = os.path.join(self._test_subdir, 'frame_000000.png')
-    self.assertTrue(tf.gfile.Exists(frame_filename))
+        frame_filename = os.path.join(self._test_subdir, 'frame_000000.png')
+        self.assertTrue(tf.gfile.Exists(frame_filename))
 
-    im = Image.open(frame_filename)
-    im_arr = np.array(im)
-    self.assertTrue(np.array_equal(im_arr, agent_visualizer.record_frame))
+        im = Image.open(frame_filename)
+        im_arr = np.array(im)
+        self.assertTrue(np.array_equal(im_arr, agent_visualizer.record_frame))
+
 
 if __name__ == '__main__':
-  tf.test.main()
+    tf.test.main()

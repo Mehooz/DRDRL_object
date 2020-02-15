@@ -60,134 +60,136 @@ CHECKPOINT_DURATION = 4
 def get_latest_checkpoint_number(base_directory,
                                  override_number=None,
                                  sentinel_file_identifier='checkpoint'):
-  """Returns the version number of the latest completed checkpoint.
+    """Returns the version number of the latest completed checkpoint.
+  
+    Args:
+      base_directory: str, directory in which to look for checkpoint files.
+      override_number: None or int, allows the user to manually override
+        the checkpoint number via a gin-binding.
+      sentinel_file_identifier: str, prefix used by checkpointer for naming
+        sentinel files.
+  
+    Returns:
+      int, the iteration number of the latest checkpoint, or -1 if none was found.
+    """
+    if override_number is not None:
+        return override_number
 
-  Args:
-    base_directory: str, directory in which to look for checkpoint files.
-    override_number: None or int, allows the user to manually override
-      the checkpoint number via a gin-binding.
-    sentinel_file_identifier: str, prefix used by checkpointer for naming
-      sentinel files.
+    sentinel = 'sentinel_{}_complete.*'.format(sentinel_file_identifier)
+    glob = os.path.join(base_directory, sentinel)
 
-  Returns:
-    int, the iteration number of the latest checkpoint, or -1 if none was found.
-  """
-  if override_number is not None:
-    return override_number
+    def extract_iteration(x):
+        return int(x[x.rfind('.') + 1:])
 
-  sentinel = 'sentinel_{}_complete.*'.format(sentinel_file_identifier)
-  glob = os.path.join(base_directory, sentinel)
-  def extract_iteration(x):
-    return int(x[x.rfind('.') + 1:])
-  try:
-    checkpoint_files = tf.gfile.Glob(glob)
-  except tf.errors.NotFoundError:
-    return -1
-  try:
-    latest_iteration = max(extract_iteration(x) for x in checkpoint_files)
-    return latest_iteration
-  except ValueError:
-    return -1
+    try:
+        checkpoint_files = tf.gfile.Glob(glob)
+    except tf.errors.NotFoundError:
+        return -1
+    try:
+        latest_iteration = max(extract_iteration(x) for x in checkpoint_files)
+        return latest_iteration
+    except ValueError:
+        return -1
 
 
 class Checkpointer(object):
-  """Class for managing checkpoints for Dopamine agents.
-  """
-
-  def __init__(self, base_directory, checkpoint_file_prefix='ckpt',
-               sentinel_file_identifier='checkpoint', checkpoint_frequency=1):
-    """Initializes Checkpointer.
-
-    Args:
-      base_directory: str, directory where all checkpoints are saved/loaded.
-      checkpoint_file_prefix: str, prefix to use for naming checkpoint files.
-      sentinel_file_identifier: str, prefix to use for naming sentinel files.
-      checkpoint_frequency: int, the frequency at which to checkpoint.
-
-    Raises:
-      ValueError: if base_directory is empty, or not creatable.
+    """Class for managing checkpoints for Dopamine agents.
     """
-    if not base_directory:
-      raise ValueError('No path provided to Checkpointer.')
-    self._checkpoint_file_prefix = checkpoint_file_prefix
-    self._sentinel_file_prefix = 'sentinel_{}_complete'.format(
-        sentinel_file_identifier)
-    self._checkpoint_frequency = checkpoint_frequency
-    self._base_directory = base_directory
-    try:
-      tf.gfile.MakeDirs(base_directory)
-    except tf.errors.PermissionDeniedError:
-      # We catch the PermissionDeniedError and issue a more useful exception.
-      raise ValueError('Unable to create checkpoint path: {}.'.format(
-          base_directory))
 
-  def _generate_filename(self, file_prefix, iteration_number):
-    """Returns a checkpoint filename from prefix and iteration number."""
-    filename = '{}.{}'.format(file_prefix, iteration_number)
-    return os.path.join(self._base_directory, filename)
+    def __init__(self, base_directory, checkpoint_file_prefix='ckpt',
+                 sentinel_file_identifier='checkpoint', checkpoint_frequency=1):
+        """Initializes Checkpointer.
+    
+        Args:
+          base_directory: str, directory where all checkpoints are saved/loaded.
+          checkpoint_file_prefix: str, prefix to use for naming checkpoint files.
+          sentinel_file_identifier: str, prefix to use for naming sentinel files.
+          checkpoint_frequency: int, the frequency at which to checkpoint.
+    
+        Raises:
+          ValueError: if base_directory is empty, or not creatable.
+        """
+        if not base_directory:
+            raise ValueError('No path provided to Checkpointer.')
+        self._checkpoint_file_prefix = checkpoint_file_prefix
+        self._sentinel_file_prefix = 'sentinel_{}_complete'.format(
+            sentinel_file_identifier)
+        self._checkpoint_frequency = checkpoint_frequency
+        self._base_directory = base_directory
+        try:
+            tf.gfile.MakeDirs(base_directory)
+        except tf.errors.PermissionDeniedError:
+            # We catch the PermissionDeniedError and issue a more useful exception.
+            raise ValueError('Unable to create checkpoint path: {}.'.format(
+                base_directory))
 
-  def _save_data_to_file(self, data, filename):
-    """Saves the given 'data' object to a file."""
-    with tf.gfile.GFile(filename, 'w') as fout:
-      pickle.dump(data, fout)
+    def _generate_filename(self, file_prefix, iteration_number):
+        """Returns a checkpoint filename from prefix and iteration number."""
+        filename = '{}.{}'.format(file_prefix, iteration_number)
+        return os.path.join(self._base_directory, filename)
 
-  def save_checkpoint(self, iteration_number, data):
-    """Saves a new checkpoint at the current iteration_number.
+    def _save_data_to_file(self, data, filename):
+        """Saves the given 'data' object to a file."""
+        with tf.gfile.GFile(filename, 'w') as fout:
+            pickle.dump(data, fout)
 
-    Args:
-      iteration_number: int, the current iteration number for this checkpoint.
-      data: Any (picklable) python object containing the data to store in the
-        checkpoint.
-    """
-    if iteration_number % self._checkpoint_frequency != 0:
-      return
+    def save_checkpoint(self, iteration_number, data):
+        """Saves a new checkpoint at the current iteration_number.
+    
+        Args:
+          iteration_number: int, the current iteration number for this checkpoint.
+          data: Any (picklable) python object containing the data to store in the
+            checkpoint.
+        """
+        if iteration_number % self._checkpoint_frequency != 0:
+            return
 
-    filename = self._generate_filename(self._checkpoint_file_prefix,
-                                       iteration_number)
-    self._save_data_to_file(data, filename)
-    filename = self._generate_filename(self._sentinel_file_prefix,
-                                       iteration_number)
-    with tf.gfile.GFile(filename, 'wb') as fout:
-      fout.write('done')
+        filename = self._generate_filename(self._checkpoint_file_prefix,
+                                           iteration_number)
+        self._save_data_to_file(data, filename)
+        filename = self._generate_filename(self._sentinel_file_prefix,
+                                           iteration_number)
+        with tf.gfile.GFile(filename, 'wb') as fout:
+            fout.write('done')
 
-    self._clean_up_old_checkpoints(iteration_number)
+        self._clean_up_old_checkpoints(iteration_number)
 
-  def _clean_up_old_checkpoints(self, iteration_number):
-    """Removes sufficiently old checkpoints."""
-    # After writing a the checkpoint and sentinel file, we garbage collect files
-    # that are CHECKPOINT_DURATION * self._checkpoint_frequency versions old.
-    stale_iteration_number = iteration_number - (self._checkpoint_frequency *
-                                                 CHECKPOINT_DURATION)
+    def _clean_up_old_checkpoints(self, iteration_number):
+        """Removes sufficiently old checkpoints."""
+        # After writing a the checkpoint and sentinel file, we garbage collect files
+        # that are CHECKPOINT_DURATION * self._checkpoint_frequency versions old.
+        stale_iteration_number = iteration_number - (self._checkpoint_frequency *
+                                                     CHECKPOINT_DURATION)
 
-    if stale_iteration_number >= 0:
-      stale_file = self._generate_filename(self._checkpoint_file_prefix,
-                                           stale_iteration_number)
-      stale_sentinel = self._generate_filename(self._sentinel_file_prefix,
-                                               stale_iteration_number)
-      try:
-        tf.gfile.Remove(stale_file)
-        tf.gfile.Remove(stale_sentinel)
-      except tf.errors.NotFoundError:
-        # Ignore if file not found.
-        tf.logging.info('Unable to remove {} or {}.'.format(stale_file,
-                                                            stale_sentinel))
+        if stale_iteration_number >= 0:
+            stale_file = self._generate_filename(self._checkpoint_file_prefix,
+                                                 stale_iteration_number)
+            stale_sentinel = self._generate_filename(self._sentinel_file_prefix,
+                                                     stale_iteration_number)
+            try:
+                tf.gfile.Remove(stale_file)
+                tf.gfile.Remove(stale_sentinel)
+            except tf.errors.NotFoundError:
+                # Ignore if file not found.
+                tf.logging.info('Unable to remove {} or {}.'.format(stale_file,
+                                                                    stale_sentinel))
 
-  def _load_data_from_file(self, filename):
-    if not tf.gfile.Exists(filename):
-      return None
-    with tf.gfile.GFile(filename, 'rb') as fin:
-      return pickle.load(fin)
+    def _load_data_from_file(self, filename):
+        if not tf.gfile.Exists(filename):
+            return None
+        with tf.gfile.GFile(filename, 'rb') as fin:
+            return pickle.load(fin)
 
-  def load_checkpoint(self, iteration_number):
-    """Tries to reload a checkpoint at the selected iteration number.
-
-    Args:
-      iteration_number: The checkpoint iteration number to try to load.
-
-    Returns:
-      If the checkpoint files exist, two unpickled objects that were passed in
-        as data to save_checkpoint; returns None if the files do not exist.
-    """
-    checkpoint_file = self._generate_filename(self._checkpoint_file_prefix,
-                                              iteration_number)
-    return self._load_data_from_file(checkpoint_file)
+    def load_checkpoint(self, iteration_number):
+        """Tries to reload a checkpoint at the selected iteration number.
+    
+        Args:
+          iteration_number: The checkpoint iteration number to try to load.
+    
+        Returns:
+          If the checkpoint files exist, two unpickled objects that were passed in
+            as data to save_checkpoint; returns None if the files do not exist.
+        """
+        checkpoint_file = self._generate_filename(self._checkpoint_file_prefix,
+                                                  iteration_number)
+        return self._load_data_from_file(checkpoint_file)

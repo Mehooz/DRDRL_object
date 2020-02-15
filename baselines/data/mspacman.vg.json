@@ -3,13 +3,19 @@
   "width": 800,
   "height": 400,
   "padding": 5,
-
-  "data": {"url": "data/mspacman.json"},
+  "data": {
+    "url": "data/mspacman.json"
+  },
   "transform": [
     {
       "filter": {
         "field": "Agent",
-        "oneOf": ["DQN", "C51", "RAINBOW", "IQN"]
+        "oneOf": [
+          "DQN",
+          "C51",
+          "RAINBOW",
+          "IQN"
+        ]
       }
     }
   ],
@@ -25,7 +31,9 @@
           "aggregate": "ci0",
           "field": "Value",
           "type": "quantitative",
-          "axis": {"title": "Return (95% CIs)"}
+          "axis": {
+            "title": "Return (95% CIs)"
+          }
         },
         "y2": {
           "aggregate": "ci1",
@@ -36,7 +44,9 @@
           "field": "Agent",
           "type": "nominal"
         },
-        "opacity": {"value": 0.3}
+        "opacity": {
+          "value": 0.3
+        }
       }
     },
     {

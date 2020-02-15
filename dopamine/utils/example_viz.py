@@ -40,7 +40,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 from absl import app
 from absl import flags
 from dopamine.utils import example_viz_lib
@@ -59,12 +58,13 @@ FLAGS = flags.FLAGS
 
 
 def main(_):
-  example_viz_lib.run(agent=FLAGS.agent,
-                      game=FLAGS.game,
-                      num_steps=FLAGS.num_steps,
-                      root_dir=FLAGS.root_dir,
-                      restore_ckpt=FLAGS.restore_checkpoint,
-                      use_legacy_checkpoint=FLAGS.use_legacy_checkpoint)
+    example_viz_lib.run(agent=FLAGS.agent,
+                        game=FLAGS.game,
+                        num_steps=FLAGS.num_steps,
+                        root_dir=FLAGS.root_dir,
+                        restore_ckpt=FLAGS.restore_checkpoint,
+                        use_legacy_checkpoint=FLAGS.use_legacy_checkpoint)
+
 
 if __name__ == '__main__':
-  app.run(main)
+    app.run(main)
