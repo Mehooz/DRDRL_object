@@ -217,6 +217,166 @@ def implicit_quantile_network(num_actions, quantile_embedding_dim,
     return network_type(quantile_values=quantile_values, quantiles=quantiles)
 
 
+def convN4(p_, num_actions, num_atoms, num_atoms_sub):
+    p = p_[0]
+    N = len(p_)
+    for i in range(1, N):
+        p = tf.matmul(tf.reshape(p, (-1, num_actions, num_atoms_sub ** i, 1)),
+                      tf.reshape(p_[i], (-1, num_actions, 1, num_atoms_sub)))
+    p = tf.reshape(p, (-1, num_actions, num_atoms_sub ** N))
+    return p
+
+
+def obj_network(num_actions, num_atoms, num_atoms_sub, num_objects, support, network_type, state,
+                v_support=None, a_support=None, big_z=None, big_a=None, big_qv=None, N=1, index=None, M=None,
+                sp_a=None, unique_num=None, sortsp_a=None, v_sup_tensor=None):
+    """The convolutional network used to compute agent's Q-value distributions.
+
+    Args:
+      num_actions: int, number of actions.
+      num_atoms: int, the number of buckets of the value function distribution.
+      support: tf.linspace, the support of the Q-value distribution.
+      network_type: namedtuple, collection of expected values to return.
+      state: `tf.Tensor`, contains the agent's current state.
+
+    Returns:
+      net: _network_type object containing the tensors output by the network.
+    """
+    weights_initializer = contrib_slim.variance_scaling_initializer(
+        factor=1.0 / np.sqrt(3.0), mode='FAN_IN', uniform=True)
+
+    net = tf.cast(state, tf.float32)
+    net = tf.div(net, 255.)
+
+    obj = contrib_slim.conv2d(
+        net, 32, [8, 8], stride=4, weights_initializer=weights_initializer)
+    obj = contrib_layers.batch_norm(obj)
+    obj = contrib_slim.conv2d(
+        obj, 64, [4, 4], stride=2, weights_initializer=weights_initializer)
+    obj = contrib_layers.batch_norm(obj)
+
+    obj = contrib_slim.conv2d(
+        tf.reshape(obj, [-1, 16, 18, 18]), num_objects, [1, 1], stride=1, weights_initializer=weights_initializer,
+        activation_fn=tf.nn.sigmoid)
+
+    obj_flat = tf.reshape(obj, [-1, num_objects, 18 * 18])
+
+    h = contrib_layers.fully_connected(obj_flat, 256)
+    h_state = contrib_layers.fully_connected(h, 128)
+    h_state = contrib_layers.batch_norm(h_state)
+    h_state = contrib_layers.fully_connected(h_state, 7)
+
+    net = contrib_slim.conv2d(
+        net, 32, [8, 8], stride=4, weights_initializer=weights_initializer)
+    net = contrib_slim.conv2d(
+        net, 64, [4, 4], stride=2, weights_initializer=weights_initializer)
+    net = contrib_slim.conv2d(
+        net, 64, [3, 3], stride=1, weights_initializer=weights_initializer)
+    net = contrib_slim.flatten(net)
+    net = contrib_slim.fully_connected(
+        net, 510, weights_initializer=weights_initializer)
+
+    a_origin, Ea = None, None
+
+    batch_size = tf.shape(net)[0]
+    q_support = None
+    q_values_sub = []
+    vmax = 10.0
+    logits = None
+    v_ = []
+    for i in range(N):
+        y = tf.concat([net, h[:, i]], -1)
+        y = contrib_layers.fully_connected(y, 512, weights_initializer=weights_initializer)
+        y = contrib_layers.fully_connected(y, 512, weights_initializer=weights_initializer)
+        v = contrib_slim.fully_connected(
+            y,
+            num_actions * num_atoms_sub,
+            activation_fn=None,
+            weights_initializer=weights_initializer, scope='v' + str(i))
+        v = tf.reshape(v, [-1, num_actions, num_atoms_sub])
+        v = tf.contrib.layers.softmax(v)
+        # TODO: here is a bug: v_sup_tensor is None
+        q_sub = tf.reduce_sum(v_sup_tensor[i] * v, axis=2)  # batch x action x atoms
+        q_values_sub.append(q_sub)
+        v_.append(v)
+    z = convN4(v_, num_actions, num_atoms, num_atoms_sub)
+    z = tf.sparse.matmul(sp_a,
+                         tf.transpose(tf.reshape(z, [batch_size * num_actions, num_atoms_sub ** N]), [1, 0]))
+    z = tf.transpose(z, [1, 0])
+    z = tf.reshape(z, [batch_size, num_actions, -1])
+    a = v
+    a_origin = a
+    Ea = tf.tile(tf.reduce_mean(a, 1, keepdims=True), [1, num_actions, 1])
+    q_v = None
+    probabilities = z
+    q_values = tf.reduce_sum(support * probabilities, axis=2)  # batch x action x atoms
+
+    return network_type(q_values, logits, probabilities, v_, a, q_v, a_origin, Ea, q_support, a_support,
+                        q_values_sub, h_state)
+
+
+def fc_initializer(input_channels, dtype=tf.float32):
+    def _initializer(shape, dtype=dtype, partition_info=None):
+        d = 1.0 / np.sqrt(input_channels)
+        return tf.random_uniform(shape, minval=-d, maxval=d)
+
+    return _initializer
+
+
+def _fc_variable(weight_shape, name):
+    name_w = "W_{0}".format(name)
+    name_b = "b_{0}".format(name)
+
+    input_channels = weight_shape[0]
+    output_channels = weight_shape[1]
+    bias_shape = [output_channels]
+
+    weight = tf.get_variable(name_w, weight_shape, initializer=fc_initializer(input_channels))
+    bias = tf.get_variable(name_b, bias_shape, initializer=fc_initializer(input_channels))
+    return weight, bias
+
+
+def base_lstm_layer(state, last_action_input, initial_state_input, action_size, reuse=False):
+    with tf.variable_scope("base_lstm", reuse=reuse) as scope:
+        # Weights
+        W_fc1, b_fc1 = _fc_variable([512, 256], "base_fc1")
+        W_fc2, b_fc2 = _fc_variable([256, 512], "base_fc2")
+
+        state_output_fc = tf.nn.relu(tf.matmul(state, W_fc1) + b_fc1)
+        # (unroll_step, 256)
+
+        step_size = tf.shape(state_output_fc)[:1]
+
+        lstm_input = tf.concat([state_output_fc, last_action_input], 1)
+        # (unroll_step, 256+action_size+1)
+
+        lstm_input_reshaped = tf.reshape(lstm_input, [1, -1, 256 + action_size])
+        # (1, unroll_step, 256+action_size+1)
+
+        lstm_outputs, lstm_state = tf.nn.dynamic_rnn(lstm_cell,
+                                                     lstm_input_reshaped,
+                                                     initial_state=initial_state_input,
+                                                     sequence_length=step_size,
+                                                     time_major=False,
+                                                     scope=scope)
+
+        lstm_outputs = tf.reshape(lstm_outputs, [-1, 256])
+
+        next_state = tf.nn.relu(tf.matmul(lstm_outputs, W_fc2) + b_fc2)
+
+        # (1,unroll_step,256) for back prop, (1,1,256) for forward prop.
+        return next_state, lstm_state
+
+
+def predict_network(state, action, lstm_cell):
+    pc_initial_lstm_state = lstm_cell.zero_state(1, tf.float32)
+    action_size = action.shape[-1]
+
+    next_state, _ = base_lstm_layer(state, action, pc_initial_lstm_state, action_size, reuse=True)
+
+    return next_state
+
+
 @gin.configurable(blacklist=['variables'])
 def maybe_transform_variable_names(variables, legacy_checkpoint_load=False):
     """Maps old variable names to the new ones.
