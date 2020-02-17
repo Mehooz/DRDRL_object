@@ -20,7 +20,6 @@ slim = tf.contrib.slim
 
 @gin.configurable
 class Obj_Agent(dqn_agent.DQNAgent):
-    """A compact implementation of a simplified Rainbow agent."""
 
     def __init__(self,
                  sess,
