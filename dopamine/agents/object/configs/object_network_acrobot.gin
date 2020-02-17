@@ -1,26 +1,29 @@
 # Hyperparameters for a simple Rainbow-style Acrobot agent. The hyperparameters
 # chosen achieve reasonable performance.
-import dopamine.agents.rainbow.rainbow_agent
+import dopamine.agents.object.obj_agent
 import dopamine.discrete_domains.gym_lib
 import dopamine.discrete_domains.run_experiment
 import dopamine.replay_memory.prioritized_replay_buffer
 import gin.tf.external_configurables
 
-RainbowAgent.observation_shape = %gym_lib.ACROBOT_OBSERVATION_SHAPE
-RainbowAgent.observation_dtype = %gym_lib.ACROBOT_OBSERVATION_DTYPE
-RainbowAgent.stack_size = %gym_lib.ACROBOT_STACK_SIZE
-RainbowAgent.network = @gym_lib.AcrobotRainbowNetwork
-RainbowAgent.num_atoms = 51
-RainbowAgent.vmax = 10.
-RainbowAgent.gamma = 0.99
-RainbowAgent.update_horizon = 3
-RainbowAgent.min_replay_history = 500
-RainbowAgent.update_period = 4
-RainbowAgent.target_update_period = 100
-RainbowAgent.epsilon_fn = @dqn_agent.identity_epsilon
-RainbowAgent.replay_scheme = 'prioritized'
-RainbowAgent.tf_device = '/gpu:0'  # use '/cpu:*' for non-GPU version
-RainbowAgent.optimizer = @tf.train.AdamOptimizer()
+Obj_Agent.observation_shape = %gym_lib.ACROBOT_OBSERVATION_SHAPE
+Obj_Agent.observation_dtype = %gym_lib.ACROBOT_OBSERVATION_DTYPE
+Obj_Agent.stack_size = %gym_lib.ACROBOT_STACK_SIZE
+Obj_Agent.network = @gym_lib.AcrobotRainbowNetwork
+Obj_Agent.num_atoms = 51
+Obj_Agent.vmax = 10.
+Obj_Agent.gamma = 0.99
+Obj_Agent.update_horizon = 3
+Obj_Agent.min_replay_history = 500
+Obj_Agent.update_period = 4
+Obj_Agent.target_update_period = 100
+Obj_Agent.epsilon_fn = @dqn_agent.identity_epsilon
+Obj_Agent.replay_scheme = 'prioritized'
+Obj_Agent.tf_device = '/gpu:0'  # use '/cpu:*' for non-GPU version
+Obj_Agent.optimizer = @tf.train.AdamOptimizer()
+Obj_Agent.N = 2
+Obj_Agent._klfactor = 0.0001
+Obj_Agent._obj_weight = 5.0
 
 tf.train.AdamOptimizer.learning_rate = 0.09
 tf.train.AdamOptimizer.epsilon = 0.0003125
