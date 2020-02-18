@@ -116,11 +116,11 @@ class Obj_Agent(dqn_agent.DQNAgent):
         # We need this because some tools convert round floats into ints.
 
         self._predict_network = predict_network
-        self._lstm_cell = tf.contrib.rnn.BasicLSTMCell(256, state_is_tuple=True)
+        self._lstm_cell = tf.contrib.rnn.BasicLSTMCell(7, state_is_tuple=True)
 
         self.testing = False
         vmax = float(vmax)
-        self.N = 1
+        self.N = N
         self._num_atoms_sub = None
         self.index = None
         self.big_z = None
@@ -286,7 +286,7 @@ class Obj_Agent(dqn_agent.DQNAgent):
     Returns:
       net: _network_type object containing the tensors output by the network.
     """
-        return self.network(self.num_actions, self._num_atoms, self._num_atoms_sub, self._support,
+        return self.network(self.num_actions, self._num_atoms, self._num_atoms_sub, self.N, self._support,
                             self._get_network_type(), state,
                             self.v_support, self.a_support, self.big_z, self.big_a, self.big_qv, self.N, self.index,
                             self.M, self.sp_a, self.unique_num, self.sortsp_a, self.v_sup_tensor)
@@ -547,7 +547,7 @@ class Obj_Agent(dqn_agent.DQNAgent):
         norm = 0.5 / (0.5 ** 2)
         diff = state - next_state
 
-        return tf.reduce_sum(tf.pow(norm * diff, 2), 0)
+        return tf.reduce_sum(tf.reduce_sum(tf.pow(norm * diff, 2), 1), 1)
 
     def _build_train_op(self):
         """Builds a training op.
@@ -577,11 +577,9 @@ class Obj_Agent(dqn_agent.DQNAgent):
 
         if self._obj_weight > 0:
             next_state = self._replay_next_target_net_outputs.h_state
-            state = self._replay_net_outputs.hstate
-            batch_size = state.shape[0]
-            perm = np.random.permutation(batch_size)
-            neg_states = next_state[perm]
-            pred_state = self._predict_network(state, reshaped_actions, self._lstm_cell)
+            state = self._replay_net_outputs.h_state
+            neg_states = tf.gather(next_state, tf.random.shuffle(tf.range(tf.shape(next_state)[0])))
+            pred_state = self._predict_network(state, reshaped_actions, self.N)
 
             pos_loss = self.energy(pred_state, next_state)
             zeros = tf.zeros_like(pos_loss)

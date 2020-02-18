@@ -55,7 +55,7 @@ class RainbowAgent(dqn_agent.DQNAgent):
                  observation_shape=dqn_agent.NATURE_DQN_OBSERVATION_SHAPE,
                  observation_dtype=dqn_agent.NATURE_DQN_DTYPE,
                  stack_size=dqn_agent.NATURE_DQN_STACK_SIZE,
-                 network=atari_lib.RainbowNetwork,
+                 network=atari_lib.rainbow_network,
                  num_atoms=51,
                  vmax=10.,
                  gamma=0.99,
@@ -156,8 +156,7 @@ class RainbowAgent(dqn_agent.DQNAgent):
         Returns:
           network: tf.keras.Model, the network instantiated by the Keras model.
         """
-        network = self.network(self.num_actions, self._num_atoms, self._support,
-                               name=name)
+        network = self.network(self.num_actions, self._num_atoms, self._support)
         return network
 
     def _build_replay_buffer(self, use_staging):

@@ -47,7 +47,7 @@ import gin
 import gym
 from gym.spaces.box import Box
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import cv2
 from tensorflow.contrib import layers as contrib_layers
@@ -229,7 +229,7 @@ def convN4(p_, num_actions, num_atoms, num_atoms_sub):
 
 def obj_network(num_actions, num_atoms, num_atoms_sub, num_objects, support, network_type, state,
                 v_support=None, a_support=None, big_z=None, big_a=None, big_qv=None, N=1, index=None, M=None,
-                sp_a=None, unique_num=None, sortsp_a=None, v_sup_tensor=None):
+                sp_a=None, unique_num=None, sortsp_a=None, v_sup_tensor=None, name=None):
     """The convolutional network used to compute agent's Q-value distributions.
 
     Args:
@@ -256,10 +256,10 @@ def obj_network(num_actions, num_atoms, num_atoms_sub, num_objects, support, net
     obj = contrib_layers.batch_norm(obj)
 
     obj = contrib_slim.conv2d(
-        tf.reshape(obj, [-1, 16, 18, 18]), num_objects, [1, 1], stride=1, weights_initializer=weights_initializer,
+        tf.reshape(obj, [-1, 22, 22, 16]), num_objects, [1, 1], stride=1, weights_initializer=weights_initializer,
         activation_fn=tf.nn.sigmoid)
 
-    obj_flat = tf.reshape(obj, [-1, num_objects, 18 * 18])
+    obj_flat = tf.reshape(obj, [-1, num_objects, 22 * 22])
 
     h = contrib_layers.fully_connected(obj_flat, 256)
     h_state = contrib_layers.fully_connected(h, 128)
@@ -336,13 +336,10 @@ def _fc_variable(weight_shape, name):
     return weight, bias
 
 
-def base_lstm_layer(state, last_action_input, initial_state_input, action_size, reuse=False):
+def base_lstm_layer(state, last_action_input, initial_state_input, action_size, lstm_cell, reuse=False):
     with tf.variable_scope("base_lstm", reuse=reuse) as scope:
         # Weights
-        W_fc1, b_fc1 = _fc_variable([512, 256], "base_fc1")
-        W_fc2, b_fc2 = _fc_variable([256, 512], "base_fc2")
 
-        state_output_fc = tf.nn.relu(tf.matmul(state, W_fc1) + b_fc1)
         # (unroll_step, 256)
 
         step_size = tf.shape(state_output_fc)[:1]
@@ -362,17 +359,36 @@ def base_lstm_layer(state, last_action_input, initial_state_input, action_size, 
 
         lstm_outputs = tf.reshape(lstm_outputs, [-1, 256])
 
-        next_state = tf.nn.relu(tf.matmul(lstm_outputs, W_fc2) + b_fc2)
-
         # (1,unroll_step,256) for back prop, (1,1,256) for forward prop.
         return next_state, lstm_state
 
 
+'''
 def predict_network(state, action, lstm_cell):
     pc_initial_lstm_state = lstm_cell.zero_state(1, tf.float32)
     action_size = action.shape[-1]
 
-    next_state, _ = base_lstm_layer(state, action, pc_initial_lstm_state, action_size, reuse=True)
+    next_state, _ = base_lstm_layer(state, action, pc_initial_lstm_state, action_size, lstm_cell)
+
+    return next_state
+'''
+
+
+def predict_network(state, action, N):
+    state = tf.reshape(state, [-1, 7 * N])
+    action_size = action.shape[-1].value
+
+    with tf.variable_scope("pred") as scope:
+        # Weights
+        W_fc1, b_fc1 = _fc_variable([7 * N, 2 * 7 * N], "pred_fc1")
+        W_fc2, b_fc2 = _fc_variable([2 * 7 * N + action_size, 2 * 7 * N], "pred_fc2")
+        W_fc3, b_fc3 = _fc_variable([2 * 7 * N, 7 * N], "pred_fc3")
+
+    x = tf.nn.relu(tf.matmul(state, W_fc1) + b_fc1)
+    x = tf.nn.relu(tf.matmul(tf.concat([x, tf.cast(action, dtype=tf.float32)], -1), W_fc2) + b_fc2)
+    x = tf.nn.relu(tf.matmul(x, W_fc3) + b_fc3)
+
+    next_state = tf.reshape(x, [-1, N, 7])
 
     return next_state
 
