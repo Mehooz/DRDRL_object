@@ -24,8 +24,8 @@ Obj_Agent.tf_device = '/gpu:0'  # use '/cpu:*' for non-GPU version
 Obj_Agent.optimizer = @tf.train.AdamOptimizer()
 
 Obj_Agent.N = 2
-Obj_Agent._klfactor = 0.0001
-Obj_Agent._obj_weight = 5.0
+Obj_Agent.klfactor = 0.0001
+Obj_Agent.obj_weight = 5.0
 
 tf.train.AdamOptimizer.learning_rate = 0.09
 tf.train.AdamOptimizer.epsilon = 0.0003125
