@@ -249,6 +249,7 @@ class RainbowAgent(dqn_agent.DQNAgent):
         return self.network(self.num_actions, self._num_atoms, self._support,
                             self._get_network_type(), state)
         # self.v_support, self.a_support, self.big_z, self.idx_matrix_add_onehot, self.idx_matrix_minus_onehot)
+
     def _get_network_type(self):
         """Returns the type of the outputs of a value distribution network.
 
@@ -257,6 +258,7 @@ class RainbowAgent(dqn_agent.DQNAgent):
     """
         return collections.namedtuple('rainbow',
                                       ['q_values', 'logits', 'probabilities'])
+
     def _build_train_op(self):
         """Builds a training op.
 

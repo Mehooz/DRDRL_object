@@ -654,7 +654,7 @@ class Obj_Agent(dqn_agent.DQNAgent):
             # Add a small nonzero value to the loss to avoid 0 priority items. While
             # technically this may be okay, setting all items to 0 priority will cause
             # troubles, and also result in 1.0 / 0.0 = NaN correction terms.
-            #TODO: turn it to which only consider TD error or other type of prioritized ER
+            # TODO: turn it to which only consider TD error or other type of prioritized ER
             update_priorities_op = self._replay.tf_set_priority(
                 self._replay.indices, tf.sqrt(loss + 1e-10))
 

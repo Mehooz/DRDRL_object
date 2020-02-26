@@ -221,7 +221,7 @@ class DQNAgent(object):
     """
         return collections.namedtuple('DQN_network', ['q_values', 'B_values'])
 
-    def _network_template(self, state, next_state):
+    def _network_template(self, state):
         """Builds the convolutional network used to compute the agent's Q-values.
 
     Args:
@@ -230,7 +230,7 @@ class DQNAgent(object):
     Returns:
       net: _network_type object containing the tensors output by the network.
     """
-        return self.network(self.num_actions, self._get_network_type(), state, True, next_state)
+        return self.network(self.num_actions, self._get_network_type(), state)
 
     def _build_networks(self):
         """Builds the Q-value network computations needed for acting and training.
@@ -249,10 +249,8 @@ class DQNAgent(object):
         # share the same weights.
         self.online_convnet = tf.compat.v1.make_template('Online', self._network_template)
         self.target_convnet = tf.compat.v1.make_template('Target', self._network_template)
-        if 'rainbow' in self.dueltype:
-            self._net_outputs = self.online_convnet(self.state_ph, self.state_ph)
-        else:
-            self._net_outputs = self.online_convnet(self.state_ph)
+
+        self._net_outputs = self.online_convnet(self.state_ph)
         # TODO(bellemare): Ties should be broken. They are unlikely to happen when
         # using a deep network, but may affect performance with a linear
         # approximation scheme.
