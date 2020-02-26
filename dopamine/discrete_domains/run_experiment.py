@@ -198,6 +198,7 @@ class Runner(object):
                                       summary_writer=self._summary_writer)
         self._summary_writer.add_graph(graph=tf.get_default_graph())
         self._sess.run(tf.global_variables_initializer())
+        self._sess.graph.finalize()
 
         self._initialize_checkpointer_and_maybe_resume(checkpoint_file_prefix)
 
