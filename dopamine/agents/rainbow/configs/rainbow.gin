@@ -24,7 +24,7 @@ RainbowAgent.optimizer = @tf.train.AdamOptimizer()
 tf.train.AdamOptimizer.learning_rate = 0.0000625
 tf.train.AdamOptimizer.epsilon = 0.00015
 
-atari_lib.create_atari_environment.game_name = 'Alien'
+atari_lib.create_atari_environment.game_name = 'Asterix'
 # Sticky actions with probability 0.25, as suggested by (Machado et al., 2017).
 atari_lib.create_atari_environment.sticky_actions = True
 create_agent.agent_name = 'rainbow'

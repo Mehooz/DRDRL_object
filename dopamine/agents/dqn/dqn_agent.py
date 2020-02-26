@@ -249,7 +249,7 @@ class DQNAgent(object):
         # share the same weights.
         self.online_convnet = tf.compat.v1.make_template('Online', self._network_template)
         self.target_convnet = tf.compat.v1.make_template('Target', self._network_template)
-        if 'aux' in self.dueltype:
+        if 'rainbow' in self.dueltype:
             self._net_outputs = self.online_convnet(self.state_ph, self.state_ph)
         else:
             self._net_outputs = self.online_convnet(self.state_ph)
@@ -258,10 +258,11 @@ class DQNAgent(object):
         # approximation scheme.
         self._q_argmax = tf.argmax(self._net_outputs.q_values, axis=1)[0]
 
-        if 'aux' in self.dueltype:
+        if 'rainbow' in self.dueltype:
             self._replay_net_outputs = self.online_convnet(self._replay.states, self._replay.next_states)
             self._replay_next_target_net_outputs = self.target_convnet(
-                self._replay.next_states, self._replay.next_states)
+                self._replay.next_states,
+                self._replay.next_states)
         else:
             self._replay_net_outputs = self.online_convnet(self._replay.states)
             self._replay_next_target_net_outputs = self.target_convnet(

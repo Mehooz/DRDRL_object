@@ -36,7 +36,7 @@ Hessel et al. (2018).
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
+import collections
 from dopamine.agents.dqn import dqn_agent
 from dopamine.discrete_domains import atari_lib
 from dopamine.replay_memory import prioritized_replay_buffer
@@ -237,6 +237,26 @@ class RainbowAgent(dqn_agent.DQNAgent):
         return project_distribution(target_support, next_probabilities,
                                     self._support)
 
+    def _network_template(self, state):
+        """Builds a convolutional network that outputs Q-value distributions.
+
+    Args:
+      state: `tf.Tensor`, contains the agent's current state.
+
+    Returns:
+      net: _network_type object containing the tensors output by the network.
+    """
+        return self.network(self.num_actions, self._num_atoms, self._support,
+                            self._get_network_type(), state)
+        # self.v_support, self.a_support, self.big_z, self.idx_matrix_add_onehot, self.idx_matrix_minus_onehot)
+    def _get_network_type(self):
+        """Returns the type of the outputs of a value distribution network.
+
+    Returns:
+      net_type: _network_type object defining the outputs of the network.
+    """
+        return collections.namedtuple('rainbow',
+                                      ['q_values', 'logits', 'probabilities'])
     def _build_train_op(self):
         """Builds a training op.
 

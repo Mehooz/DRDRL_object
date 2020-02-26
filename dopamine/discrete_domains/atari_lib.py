@@ -249,7 +249,12 @@ def obj_network(num_actions, num_atoms, num_atoms_sub, num_objects, support, net
     net = tf.div(net, 255.)
 
     obj = contrib_slim.conv2d(
-        net, 32, [8, 8], stride=4, weights_initializer=weights_initializer)
+        net, 32, [3, 3], stride=1, weights_initializer=weights_initializer)
+    obj = contrib_slim.conv2d(
+        obj, 64, [3, 3], stride=1, weights_initializer=weights_initializer)
+
+    obj = contrib_slim.conv2d(
+        obj, 32, [8, 8], stride=4, weights_initializer=weights_initializer)
     obj = contrib_layers.batch_norm(obj)
     obj = contrib_slim.conv2d(
         obj, 64, [4, 4], stride=2, weights_initializer=weights_initializer)

@@ -28,7 +28,7 @@ class Obj_Agent(dqn_agent.DQNAgent):
                  observation_dtype=dqn_agent.NATURE_DQN_DTYPE,
                  stack_size=dqn_agent.NATURE_DQN_STACK_SIZE,
                  network=atari_lib.obj_network,
-                 game='Pong',
+                 game='GAME',
                  num_atoms=51,
                  N=1,
                  klfactor=0.0001,
@@ -654,6 +654,7 @@ class Obj_Agent(dqn_agent.DQNAgent):
             # Add a small nonzero value to the loss to avoid 0 priority items. While
             # technically this may be okay, setting all items to 0 priority will cause
             # troubles, and also result in 1.0 / 0.0 = NaN correction terms.
+            #TODO: turn it to which only consider TD error or other type of prioritized ER
             update_priorities_op = self._replay.tf_set_priority(
                 self._replay.indices, tf.sqrt(loss + 1e-10))
 
