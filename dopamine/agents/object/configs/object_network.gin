@@ -18,7 +18,7 @@ Obj_Agent.epsilon_train = 0.01
 Obj_Agent.epsilon_eval = 0.001
 Obj_Agent.epsilon_decay_period = 250000  # agent steps
 Obj_Agent.replay_scheme = 'prioritized'
-Obj_Agent.tf_device = '/gpu:6'  # use '/cpu:*' for non-GPU version
+Obj_Agent.tf_device = '/gpu:5'  # use '/cpu:*' for non-GPU version
 Obj_Agent.optimizer = @tf.train.AdamOptimizer()
 Obj_Agent.N = 3
 Obj_Agent.klfactor = 0.0001
@@ -28,7 +28,7 @@ Obj_Agent.obj_weight = 10.0
 tf.train.AdamOptimizer.learning_rate = 0.0000625
 tf.train.AdamOptimizer.epsilon = 0.00015
 
-atari_lib.create_atari_environment.game_name = 'Alien'
+atari_lib.create_atari_environment.game_name = 'Gopher'
 # Sticky actions with probability 0.25, as suggested by (Machado et al., 2017).
 atari_lib.create_atari_environment.sticky_actions = True
 create_agent.agent_name = 'obj'

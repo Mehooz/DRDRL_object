@@ -341,63 +341,6 @@ def _fc_variable(weight_shape, name):
     return weight, bias
 
 
-def base_lstm_layer(state, last_action_input, initial_state_input, action_size, lstm_cell, reuse=False):
-    with tf.variable_scope("base_lstm", reuse=reuse) as scope:
-        # Weights
-
-        # (unroll_step, 256)
-
-        step_size = tf.shape(state_output_fc)[:1]
-
-        lstm_input = tf.concat([state_output_fc, last_action_input], 1)
-        # (unroll_step, 256+action_size+1)
-
-        lstm_input_reshaped = tf.reshape(lstm_input, [1, -1, 256 + action_size])
-        # (1, unroll_step, 256+action_size+1)
-
-        lstm_outputs, lstm_state = tf.nn.dynamic_rnn(lstm_cell,
-                                                     lstm_input_reshaped,
-                                                     initial_state=initial_state_input,
-                                                     sequence_length=step_size,
-                                                     time_major=False,
-                                                     scope=scope)
-
-        lstm_outputs = tf.reshape(lstm_outputs, [-1, 256])
-
-        # (1,unroll_step,256) for back prop, (1,1,256) for forward prop.
-        return next_state, lstm_state
-
-
-'''
-def predict_network(state, action, lstm_cell):
-    pc_initial_lstm_state = lstm_cell.zero_state(1, tf.float32)
-    action_size = action.shape[-1]
-
-    next_state, _ = base_lstm_layer(state, action, pc_initial_lstm_state, action_size, lstm_cell)
-
-    return next_state
-'''
-
-
-def predict_network(state, action, N):
-    state = tf.reshape(state, [-1, 7 * N])
-    action_size = action.shape[-1].value
-
-    with tf.variable_scope("pred") as scope:
-        # Weights
-        W_fc1, b_fc1 = _fc_variable([7 * N, 2 * 7 * N], "pred_fc1")
-        W_fc2, b_fc2 = _fc_variable([2 * 7 * N + action_size, 2 * 7 * N], "pred_fc2")
-        W_fc3, b_fc3 = _fc_variable([2 * 7 * N, 7 * N], "pred_fc3")
-
-    x = tf.nn.relu(tf.matmul(state, W_fc1) + b_fc1)
-    x = tf.nn.relu(tf.matmul(tf.concat([x, tf.cast(action, dtype=tf.float32)], -1), W_fc2) + b_fc2)
-    x = tf.nn.relu(tf.matmul(x, W_fc3) + b_fc3)
-
-    next_state = tf.reshape(x, [-1, N, 7])
-
-    return next_state
-
-
 @gin.configurable(blacklist=['variables'])
 def maybe_transform_variable_names(variables, legacy_checkpoint_load=False):
     """Maps old variable names to the new ones.

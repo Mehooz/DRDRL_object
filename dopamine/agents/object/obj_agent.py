@@ -5,10 +5,10 @@ from __future__ import print_function
 import collections
 import csv, json, pickle
 import multiprocessing
-from dopamine.discrete_domains.atari_lib import predict_network
 from dopamine.agents.dqn import dqn_agent
 from dopamine.discrete_domains import atari_lib
 from dopamine.replay_memory import prioritized_replay_buffer
+from dopamine.discrete_domains.atari_lib import _fc_variable
 import tensorflow as tf
 import random
 import numpy as np
@@ -115,12 +115,14 @@ class Obj_Agent(dqn_agent.DQNAgent):
 
         # We need this because some tools convert round floats into ints.
 
-        self._predict_network = predict_network
         self._lstm_cell = tf.contrib.rnn.BasicLSTMCell(7, state_is_tuple=True)
-
+        self._pred_state = None
+        self._state = None
+        self._action = None
         self.testing = False
         vmax = float(vmax)
         self.N = N
+        self.create_pred_variable()
         self._num_atoms_sub = None
         self.index = None
         self.big_z = None
@@ -266,6 +268,23 @@ class Obj_Agent(dqn_agent.DQNAgent):
             summary_writing_frequency=summary_writing_frequency)
         print(self._sess.run(self._support))
         # exit(0)
+
+    def create_pred_variable(self):
+
+        with tf.variable_scope("pred") as scope:
+            # Weights
+            self.W_fc1, self.b_fc1 = _fc_variable([7 * self.N, 2 * 7 * self.N], "pred_fc1")
+            self.W_fc2, self.b_fc2 = _fc_variable([2 * 7 * self.N + 2, 2 * 7 * self.N], "pred_fc2")
+            self.W_fc3, self.b_fc3 = _fc_variable([2 * 7 * self.N, 7 * self.N], "pred_fc3")
+
+    def predict_network(self):
+
+        self._state = tf.reshape(self._state, [-1, 7 * self.N])
+        x = tf.nn.relu(tf.matmul(self._state, self.W_fc1) + self.b_fc1)
+        x = tf.nn.relu(tf.matmul(tf.concat([x, tf.cast(self._action, dtype=tf.float32)], -1), self.W_fc2) + self.b_fc2)
+        x = tf.nn.relu(tf.matmul(x, self.W_fc3) + self.b_fc3)
+
+        return tf.reshape(x, [-1, self.N, 7])
 
     def _get_network_type(self):
         """Returns the type of the outputs of a value distribution network.
@@ -577,9 +596,10 @@ class Obj_Agent(dqn_agent.DQNAgent):
 
         if self._obj_weight > 0:
             next_state = self._replay_next_target_net_outputs.h_state
-            state = self._replay_net_outputs.h_state
+            self._state = self._replay_net_outputs.h_state
+            self._action = reshaped_actions
             neg_states = tf.gather(next_state, tf.random.shuffle(tf.range(tf.shape(next_state)[0])))
-            pred_state = self._predict_network(state, reshaped_actions, self.N)
+            pred_state = self.predict_network()
 
             pos_loss = self.energy(pred_state, next_state)
             zeros = tf.zeros_like(pos_loss)

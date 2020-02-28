@@ -310,7 +310,7 @@ class RainbowAgent(dqn_agent.DQNAgent):
             # Schaul et al. reports a slightly different rule, where 1/N is also
             # exponentiated by beta. Not doing so seems more reasonable, and did not
             # impact performance in our experiments.
-            return self.optimizer.minimize(tf.reduce_mean(loss)), loss
+            return self.optimizer.minimize(tf.reduce_mean(loss))
 
     def _store_transition(self,
                           last_observation,
